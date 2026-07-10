@@ -1,10 +1,38 @@
 import pool from "../database/db.js";
+import { successResponse, errorResponse } from "../utils/response.js";
+import { isRequired } from "../utils/validators.js";
+import { MESSAGES } from "../constants/messages.js";
 
 export const createExtension = async (req, res) => {
-  try {
-    const { reservationId, additionalNights, amount, status } = req.body;
+  const client = await pool.connect();
 
-    const result = await pool.query(
+  try {
+    const { reservationId, additionalNights, amount } = req.body;
+
+    // Validation
+    if (!isRequired(reservationId, additionalNights, amount)) {
+      return errorResponse(
+        res,
+        400,
+        "Reservation ID, additional nights and amount are required.",
+      );
+    }
+
+    if (Number(additionalNights) <= 0) {
+      return errorResponse(
+        res,
+        400,
+        "Additional nights must be greater than zero.",
+      );
+    }
+
+    if (Number(amount) <= 0) {
+      return errorResponse(res, 400, "Amount must be greater than zero.");
+    }
+
+    await client.query("BEGIN");
+
+    const extensionResult = await client.query(
       `
       INSERT INTO extensions
       (
@@ -16,10 +44,10 @@ export const createExtension = async (req, res) => {
       VALUES ($1,$2,$3,$4)
       RETURNING *
       `,
-      [reservationId, additionalNights, amount, status],
+      [reservationId, additionalNights, amount, "Approved"],
     );
 
-    await pool.query(
+    await client.query(
       `
       UPDATE reservations
       SET check_out_date =
@@ -29,7 +57,7 @@ export const createExtension = async (req, res) => {
       [additionalNights, reservationId],
     );
 
-    await pool.query(
+    await client.query(
       `
       UPDATE digital_keys
       SET valid_until =
@@ -39,15 +67,25 @@ export const createExtension = async (req, res) => {
       [additionalNights, reservationId],
     );
 
-    res.status(201).json({
-      message: "Extension approved successfully",
-      extension: result.rows[0],
-    });
-  } catch (error) {
-    console.log(error);
+    await client.query("COMMIT");
 
-    res.status(500).json({
-      message: error.message,
-    });
+    return successResponse(
+      res,
+      201,
+      "Room extension approved successfully.",
+      extensionResult.rows[0],
+    );
+  } catch (error) {
+    await client.query("ROLLBACK");
+
+    console.error(error);
+
+    if (error.code === "23503") {
+      return errorResponse(res, 404, "Reservation not found.");
+    }
+
+    return errorResponse(res, 500, "Failed to extend reservation.");
+  } finally {
+    client.release();
   }
 };

@@ -1,8 +1,12 @@
 import pool from "../database/db.js";
+import { successResponse, errorResponse } from "../utils/response.js";
+import { ROOM_STATUS } from "../constants/roomStatus.js";
+import { MESSAGES } from "../constants/messages.js";
 
 export const getAvailableRooms = async (req, res) => {
   try {
-    const result = await pool.query(`
+    const result = await pool.query(
+      `
       SELECT
         rooms.id,
         rooms.room_number,
@@ -15,16 +19,25 @@ export const getAvailableRooms = async (req, res) => {
       FROM rooms
       JOIN room_types
       ON rooms.room_type_id = room_types.id
-      WHERE rooms.status = 'Available'
-      ORDER BY rooms.room_number;
-    `);
+      WHERE rooms.status = $1
+      ORDER BY rooms.room_number
+      `,
+      [ROOM_STATUS.AVAILABLE],
+    );
 
-    res.status(200).json(result.rows);
+    if (result.rows.length === 0) {
+      return successResponse(res, 200, "No rooms available.", []);
+    }
+
+    return successResponse(
+      res,
+      200,
+      "Available rooms fetched successfully.",
+      result.rows,
+    );
   } catch (error) {
-    console.log(error);
+    console.error(error);
 
-    res.status(500).json({
-      message: error.message,
-    });
+    return errorResponse(res, 500, "Failed to fetch available rooms.");
   }
 };

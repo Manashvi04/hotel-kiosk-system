@@ -1,8 +1,30 @@
 import pool from "../database/db.js";
+import { successResponse, errorResponse } from "../utils/response.js";
+import { isRequired, isValidMobile } from "../utils/validators.js";
+import { VISITOR_STATUS } from "../constants/visitorStatus.js";
+import { MESSAGES } from "../constants/messages.js";
 
 export const createVisitor = async (req, res) => {
   try {
     const { reservationId, firstName, lastName, mobile, purpose } = req.body;
+
+    // Required Fields
+    if (!isRequired(reservationId, firstName, mobile, purpose)) {
+      return errorResponse(
+        res,
+        400,
+        "Reservation ID, first name, mobile number and purpose are required.",
+      );
+    }
+
+    // Mobile Validation
+    if (!isValidMobile(mobile)) {
+      return errorResponse(
+        res,
+        400,
+        "Mobile number must contain exactly 10 digits.",
+      );
+    }
 
     const result = await pool.query(
       `
@@ -17,16 +39,24 @@ export const createVisitor = async (req, res) => {
       VALUES ($1,$2,$3,$4,$5)
       RETURNING *
       `,
-      [reservationId, firstName, lastName, mobile, purpose],
+      [reservationId, firstName, lastName || null, mobile, purpose],
     );
 
-    res.status(201).json(result.rows[0]);
+    return successResponse(
+      res,
+      201,
+      "Visitor added successfully.",
+      result.rows[0],
+    );
   } catch (error) {
-    console.log(error);
+    console.error(error);
 
-    res.status(500).json({
-      message: error.message,
-    });
+    // Reservation doesn't exist
+    if (error.code === "23503") {
+      return errorResponse(res, 404, "Reservation not found.");
+    }
+
+    return errorResponse(res, 500, "Failed to add visitor.");
   }
 };
 
@@ -34,25 +64,35 @@ export const checkoutVisitor = async (req, res) => {
   try {
     const { visitorId } = req.body;
 
-    await pool.query(
+    if (!isRequired(visitorId)) {
+      return errorResponse(res, 400, "Visitor ID is required.");
+    }
+
+    const result = await pool.query(
       `
       UPDATE visitors
       SET
         check_out_time = CURRENT_TIMESTAMP,
-        status = 'Checked Out'
-      WHERE id = $1
+        status = $1
+      WHERE id = $2
+      RETURNING *
       `,
-      [visitorId],
+      [VISITOR_STATUS.CHECKED_OUT, visitorId],
     );
 
-    res.status(200).json({
-      message: "Visitor checked out successfully",
-    });
-  } catch (error) {
-    console.log(error);
+    if (result.rowCount === 0) {
+      return errorResponse(res, 404, "Visitor not found.");
+    }
 
-    res.status(500).json({
-      message: error.message,
-    });
+    return successResponse(
+      res,
+      200,
+      "Visitor checked out successfully.",
+      result.rows[0],
+    );
+  } catch (error) {
+    console.error(error);
+
+    return errorResponse(res, 500, "Failed to checkout visitor.");
   }
 };

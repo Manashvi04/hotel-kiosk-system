@@ -1,4 +1,9 @@
 import pool from "../database/db.js";
+import { successResponse, errorResponse } from "../utils/response.js";
+import { isRequired } from "../utils/validators.js";
+import { RESERVATION_STATUS } from "../constants/reservationStatus.js";
+import { PAYMENT_STATUS } from "../constants/paymentStatus.js";
+import { MESSAGES } from "../constants/messages.js";
 
 export const createReservation = async (req, res) => {
   try {
@@ -10,10 +15,32 @@ export const createReservation = async (req, res) => {
       checkOutDate,
       totalGuests,
       totalRooms,
-      status,
-      paymentStatus,
       specialRequests,
     } = req.body;
+
+    // Required Fields
+    if (
+      !isRequired(
+        bookingId,
+        guestId,
+        source,
+        checkInDate,
+        checkOutDate,
+        totalGuests,
+        totalRooms,
+      )
+    ) {
+      return errorResponse(res, 400, "All required fields must be provided.");
+    }
+
+    // Basic Validation
+    if (Number(totalGuests) <= 0) {
+      return errorResponse(res, 400, "Total guests must be greater than zero.");
+    }
+
+    if (Number(totalRooms) <= 0) {
+      return errorResponse(res, 400, "Total rooms must be greater than zero.");
+    }
 
     const result = await pool.query(
       `
@@ -41,18 +68,31 @@ export const createReservation = async (req, res) => {
         checkOutDate,
         totalGuests,
         totalRooms,
-        status,
-        paymentStatus,
-        specialRequests,
+        RESERVATION_STATUS.CONFIRMED,
+        PAYMENT_STATUS.PENDING,
+        specialRequests || null,
       ],
     );
 
-    res.status(201).json(result.rows[0]);
+    return successResponse(
+      res,
+      201,
+      "Reservation created successfully.",
+      result.rows[0],
+    );
   } catch (error) {
-    console.log(error);
+    console.error(error);
 
-    res.status(500).json({
-      message: error.message,
-    });
+    // Guest does not exist
+    if (error.code === "23503") {
+      return errorResponse(res, 404, "Guest not found.");
+    }
+
+    // Duplicate Booking ID
+    if (error.code === "23505") {
+      return errorResponse(res, 409, "Booking ID already exists.");
+    }
+
+    return errorResponse(res, 500, "Failed to create reservation.");
   }
 };
