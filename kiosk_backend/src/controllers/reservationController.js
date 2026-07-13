@@ -16,6 +16,7 @@ export const createReservation = async (req, res) => {
       totalGuests,
       totalRooms,
       specialRequests,
+      totalAmount,
     } = req.body;
 
     // Required Fields
@@ -55,9 +56,10 @@ export const createReservation = async (req, res) => {
         total_rooms,
         status,
         payment_status,
-        special_requests
+        special_requests,
+        total_amount
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
       RETURNING *
       `,
       [
@@ -70,7 +72,8 @@ export const createReservation = async (req, res) => {
         totalRooms,
         RESERVATION_STATUS.CONFIRMED,
         PAYMENT_STATUS.PENDING,
-        specialRequests || null,
+        specialRequests,
+        totalAmount,
       ],
     );
 
@@ -94,5 +97,66 @@ export const createReservation = async (req, res) => {
     }
 
     return errorResponse(res, 500, "Failed to create reservation.");
+  }
+};
+
+export const verifyReservation = async (req, res) => {
+  try {
+    const { bookingId } = req.body;
+
+    const result = await pool.query(
+      `
+  SELECT
+      r.*,
+
+      g.first_name,
+      g.last_name,
+      g.email,
+      g.mobile,
+
+      rm.room_number,
+
+      rt.name AS room_type,
+
+      rr.guests_assigned
+
+      FROM reservations r
+
+      JOIN guests g
+      ON r.guest_id = g.id
+
+      LEFT JOIN reservation_rooms rr
+      ON r.id = rr.reservation_id
+
+      LEFT JOIN rooms rm
+      ON rr.room_id = rm.id
+
+      LEFT JOIN room_types rt
+      ON rm.room_type_id = rt.id
+
+      WHERE r.booking_id = $1
+      `,
+      [bookingId],
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Reservation not found.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Reservation found.",
+      data: result.rows[0],
+    });
+  } catch (error) {
+    console.log(error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };

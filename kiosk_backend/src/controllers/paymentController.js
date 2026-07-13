@@ -7,7 +7,7 @@ import { PAYMENT_METHOD } from "../constants/paymentMethod.js";
 
 export const createPayment = async (req, res) => {
   try {
-    const { reservationId, amount, paymentMethod, transactionId } = req.body;
+    const { bookingId, amount, paymentMethod, transactionId } = req.body;
 
     const allowedMethods = Object.values(PAYMENT_METHOD);
 
@@ -16,11 +16,11 @@ export const createPayment = async (req, res) => {
     }
 
     // Required Fields
-    if (!isRequired(reservationId, amount, paymentMethod)) {
+    if (!isRequired(bookingId, amount, paymentMethod)) {
       return errorResponse(
         res,
         400,
-        "Reservation ID, amount and payment method are required.",
+        "Booking ID, amount and payment method are required.",
       );
     }
 
@@ -32,6 +32,21 @@ export const createPayment = async (req, res) => {
         "Payment amount must be greater than zero.",
       );
     }
+
+    const reservation = await pool.query(
+      `
+  SELECT id
+  FROM reservations
+  WHERE booking_id = $1
+  `,
+      [bookingId],
+    );
+
+    if (reservation.rows.length === 0) {
+      return errorResponse(res, 404, "Reservation not found.");
+    }
+
+    const reservationId = reservation.rows[0].id;
 
     const result = await pool.query(
       `
@@ -53,6 +68,15 @@ export const createPayment = async (req, res) => {
         PAYMENT_STATUS.PAID,
         transactionId || null,
       ],
+    );
+
+    await pool.query(
+      `
+  UPDATE reservations
+  SET payment_status = 'Paid'
+  WHERE id = $1
+  `,
+      [reservationId],
     );
 
     return successResponse(

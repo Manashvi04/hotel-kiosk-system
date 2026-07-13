@@ -6,14 +6,30 @@ import { MESSAGES } from "../constants/messages.js";
 
 export const createDigitalKey = async (req, res) => {
   try {
-    const { reservationId, validUntil } = req.body;
+    const { bookingId } = req.body;
 
-    if (!isRequired(reservationId, validUntil)) {
+    if (!isRequired(bookingId)) {
       return errorResponse(
         res,
         400,
         "Reservation ID and validity date are required.",
       );
+    }
+
+    const reservation = await pool.query(
+      `
+  SELECT id, check_out_date
+  FROM reservations
+  WHERE booking_id = $1
+  `,
+      [bookingId],
+    );
+
+    const reservationId = reservation.rows[0].id;
+    const validUntil = reservation.rows[0].check_out_date;
+
+    if (reservation.rows.length === 0) {
+      return errorResponse(res, 404, "Reservation not found.");
     }
 
     const keyNumber =

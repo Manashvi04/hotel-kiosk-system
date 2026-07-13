@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   ScrollView,
 } from "react-native";
-
+import { useEffect, useState } from "react";
+import { createDigitalKey } from "../services/digitalkeyapi";
 import { MaterialIcons } from "@expo/vector-icons";
 
 import { LanguageContext } from "../context/LanguageContext";
@@ -20,7 +21,27 @@ export default function KeyCardScreen({ navigation, route }) {
 
   const roomNumbers = route.params?.roomNumbers || [];
 
-  const bookingId = route.params?.bookingId;
+  const reservation = route.params?.reservation;
+
+  const bookingId = reservation?.booking_id;
+
+  const [digitalKey, setDigitalKey] = useState(null);
+
+  useEffect(() => {
+    generateKey();
+  }, []);
+
+  const generateKey = async () => {
+    try {
+      const response = await createDigitalKey(bookingId);
+
+      console.log(response);
+
+      setDigitalKey(response.data);
+    } catch (error) {
+      console.log(error.response?.data || error.message);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -57,7 +78,7 @@ export default function KeyCardScreen({ navigation, route }) {
 
               <View style={styles.roomBadge}>
                 <Text style={styles.roomBadgeText}>
-                  ROOM {roomNumbers.join(",")}
+                  ROOM ROOM {reservation?.room_number}
                 </Text>
               </View>
             </View>
@@ -71,6 +92,35 @@ export default function KeyCardScreen({ navigation, route }) {
 
             <Text style={styles.scanText}>SCANNING QR IS ACTIVE</Text>
 
+            <Text
+              style={{
+                color: "#FFFFFF",
+                textAlign: "center",
+                fontSize: 18,
+                marginTop: 15,
+                fontWeight: "bold",
+              }}
+            >
+              {digitalKey?.key_number}
+            </Text>
+
+            <Text
+              style={{
+                color: "#94A3B8",
+                textAlign: "center",
+                marginTop: 10,
+              }}
+            >
+              Valid Until:{" "}
+              {digitalKey
+                ? new Date(digitalKey.valid_until).toLocaleDateString("en-IN", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })
+                : ""}
+            </Text>
+
             <View style={styles.divider} />
 
             <View style={styles.bottomInfo}>
@@ -78,14 +128,14 @@ export default function KeyCardScreen({ navigation, route }) {
                 <Text style={styles.smallLabel}>PRIMARY GUEST</Text>
 
                 <Text style={styles.infoText}>
-                  {route.params.firstName} {route.params.lastName}
+                  {reservation?.first_name} {reservation?.last_name}
                 </Text>
               </View>
 
               <View>
                 <Text style={styles.smallLabel}>BOOKING ID</Text>
 
-                <Text style={styles.infoText}>{bookingId}</Text>
+                <Text style={styles.infoText}>{reservation?.booking_id}</Text>
               </View>
             </View>
           </View>

@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React, { useContext, useEffect } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { translations } from "../translation";
 import LanguageButton from "../components/LanguageButton";
 
 import { MaterialIcons, FontAwesome5, Ionicons } from "@expo/vector-icons";
+import { getAvailableRooms } from "../services/roomapi";
 
 const { width } = Dimensions.get("window");
 const isTablet = width >= 768;

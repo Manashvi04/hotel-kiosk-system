@@ -10,6 +10,8 @@ import {
   ScrollView,
 } from "react-native";
 
+import { verifyReservation } from "../services/reservationapi";
+
 import { MaterialIcons } from "@expo/vector-icons";
 
 import { LanguageContext } from "../context/LanguageContext";
@@ -19,6 +21,8 @@ export default function BookingVerificationScreen({ navigation, route }) {
   const { language } = useContext(LanguageContext);
 
   const t = translations[language] || translations.en;
+
+  const [reservation, setReservation] = useState(null);
 
   const [method, setMethod] = useState("booking");
 
@@ -35,27 +39,24 @@ export default function BookingVerificationScreen({ navigation, route }) {
     4: t.presidentialSuite,
   };
 
-  const handleVerify = () => {
-    if (!value.trim()) {
-      Alert.alert("Error", "Please enter a value.");
-      return;
-    }
-
-    if (method === "mobile" && !/^\d{10}$/.test(value)) {
-      Alert.alert("Error", "Please enter a valid mobile number.");
-      return;
-    }
-
-    if (method === "email") {
-      const emailRegex = /\S+@\S+\.\S+/;
-
-      if (!emailRegex.test(value)) {
-        Alert.alert("Error", "Please enter a valid email.");
+  const handleVerify = async () => {
+    try {
+      if (!value.trim()) {
+        Alert.alert("Error", "Please enter a value.");
         return;
       }
-    }
 
-    setVerified(true);
+      const response = await verifyReservation(value);
+      setReservation(response.data);
+      Alert.alert("Success", response.message);
+
+      setVerified(true);
+    } catch (error) {
+      Alert.alert(
+        "Verification Failed",
+        error.response?.data?.message || error.message,
+      );
+    }
   };
 
   const flow = route.params?.from;
@@ -189,22 +190,42 @@ export default function BookingVerificationScreen({ navigation, route }) {
                   <>
                     <View style={styles.detailBox}>
                       <Text style={styles.detailLabel}>GUEST</Text>
-                      <Text style={styles.detailValue}>Manu Choksi</Text>
+                      <Text style={styles.detailValue}>
+                        {reservation
+                          ? `${reservation.first_name} ${reservation.last_name}`
+                          : ""}
+                      </Text>
                     </View>
 
                     <View style={styles.detailBox}>
                       <Text style={styles.detailLabel}>ROOM</Text>
-                      <Text style={styles.detailValue}>Executive Suite</Text>
+                      <Text style={styles.detailValue}>
+                        {reservation
+                          ? `${reservation.room_number} (${reservation.room_type})`
+                          : ""}
+                      </Text>
                     </View>
 
                     <View style={styles.detailBox}>
                       <Text style={styles.detailLabel}>GUESTS</Text>
-                      <Text style={styles.detailValue}>2</Text>
+                      <Text style={styles.detailValue}>
+                        {reservation ? reservation.guests_assigned : ""}
+                      </Text>
                     </View>
 
                     <View style={styles.detailBox}>
                       <Text style={styles.detailLabel}>CHECK-IN</Text>
-                      <Text style={styles.detailValue}>20 June 2026</Text>
+                      <Text style={styles.detailValue}>
+                        {reservation
+                          ? new Date(
+                              reservation.check_in_date,
+                            ).toLocaleDateString("en-IN", {
+                              day: "numeric",
+                              month: "long",
+                              year: "numeric",
+                            })
+                          : ""}
+                      </Text>
                     </View>
                   </>
                 ) : (
@@ -264,19 +285,7 @@ export default function BookingVerificationScreen({ navigation, route }) {
                     } else if (flow === "reservation") {
                       navigation.navigate("ReservationSummary", {
                         from: "reservation",
-
-                        bookingId: value,
-
-                        firstName: "Manu",
-                        lastName: "Choksi",
-
-                        selectedRoom: 2,
-
-                        totalGuests: 2,
-
-                        mobile: "9876543210",
-
-                        email: "manu@gmail.com",
+                        reservation,
                       });
                     } else {
                       navigation.navigate("Payment", {

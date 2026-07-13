@@ -11,17 +11,39 @@ import {
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 export default function ReservationSummaryScreen({ navigation, route }) {
-  const {
-    guestName = "Manu Choksi",
-    bookingId = "BK123456",
-    roomType = "Executive Suite",
-    roomNumber = "305",
-    checkInDate = "20 Jul 2026",
-    checkOutDate = "23 Jul 2026",
-    guests = 2,
-    paymentStatus = "Pending",
-    totalAmount = 9000,
-  } = route.params || {};
+  const { reservation } = route.params || {};
+
+  const guestName = reservation
+    ? `${reservation.first_name} ${reservation.last_name}`
+    : "";
+
+  const bookingId = reservation?.booking_id || "";
+
+  const roomType = reservation?.room_type || "";
+
+  const roomNumber = reservation?.room_number || "";
+
+  const guests = reservation?.guests_assigned || 0;
+
+  const paymentStatus = reservation?.payment_status || "";
+
+  const checkInDate = reservation
+    ? new Date(reservation.check_in_date).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : "";
+
+  const checkOutDate = reservation
+    ? new Date(reservation.check_out_date).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : "";
+
+  const totalAmount = reservation?.total_amount || 0;
 
   return (
     <SafeAreaView style={styles.container}>

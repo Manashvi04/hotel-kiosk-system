@@ -10,7 +10,7 @@ import {
   Modal,
   Alert,
 } from "react-native";
-
+import { createPayment } from "../services/paymentapi";
 import { MaterialIcons } from "@expo/vector-icons";
 
 import BackgroundDecorations from "../components/BackgroundDecorations";
@@ -34,7 +34,7 @@ export default function UpiPaymentScreen({ navigation, route }) {
 
   const [modalVisible, setModalVisible] = useState(false);
 
-  const handlePayment = () => {
+  const handlePayment = async () => {
     if (paymentMode === "upi" && !upiId.trim()) {
       Alert.alert(t.error, t.enterUpiId);
       return;
@@ -45,7 +45,25 @@ export default function UpiPaymentScreen({ navigation, route }) {
       return;
     }
 
-    setModalVisible(true);
+    try {
+      const response = await createPayment(
+        route.params.reservation.booking_id,
+        Number(amount),
+        "UPI",
+        "TXN" + Date.now(),
+      );
+
+      console.log(response);
+
+      setModalVisible(true);
+    } catch (error) {
+      console.log(error.response?.data || error.message);
+
+      Alert.alert(
+        "Payment Failed",
+        error.response?.data?.message || "Unable to process payment.",
+      );
+    }
   };
 
   return (

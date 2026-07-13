@@ -9,7 +9,7 @@ import {
   Modal,
   ScrollView,
 } from "react-native";
-
+import { verifyIdentity } from "../services/identityverificationapi";
 import { MaterialIcons } from "@expo/vector-icons";
 
 import { LanguageContext } from "../context/LanguageContext";
@@ -17,6 +17,14 @@ import { translations } from "../translation";
 
 export default function IdVerificationScreen({ navigation, route }) {
   const { language } = useContext(LanguageContext);
+
+  const { reservation } = route.params || {};
+
+  const guestName = reservation
+    ? `${reservation.first_name} ${reservation.last_name}`
+    : "";
+
+  const bookingId = reservation?.booking_id || "";
 
   const t = translations[language] || translations.en;
 
@@ -30,13 +38,28 @@ export default function IdVerificationScreen({ navigation, route }) {
 
   const [scanning, setScanning] = useState(false);
 
-  const handleScan = () => {
+  const handleScan = async () => {
     setScanning(true);
 
-    setTimeout(() => {
-      setScanning(false);
-      setVerified(true);
-      setModalVisible(true);
+    setTimeout(async () => {
+      try {
+        const response = await verifyIdentity(
+          reservation.booking_id,
+          selectedId,
+        );
+
+        console.log(response);
+
+        setScanning(false);
+        setVerified(true);
+        setModalVisible(true);
+      } catch (error) {
+        console.log(error.response?.data || error.message);
+
+        setScanning(false);
+
+        alert(error.response?.data?.message || "Identity verification failed.");
+      }
     }, 2000);
   };
 
@@ -63,13 +86,25 @@ export default function IdVerificationScreen({ navigation, route }) {
             Please provide and verify a legal identification card.
           </Text>
 
+          <View style={styles.guestCard}>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Guest</Text>
+              <Text style={styles.infoValue}>{guestName}</Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Booking ID</Text>
+              <Text style={styles.infoValue}>{bookingId}</Text>
+            </View>
+          </View>
+
           <View style={styles.idContainer}>
             <TouchableOpacity
               style={[
                 styles.idCard,
                 selectedId === "aadhaar" && styles.selectedCard,
               ]}
-              onPress={() => setSelectedId("aadhaar")}
+              onPress={() => setSelectedId("Aadhaar")}
             >
               <Text style={styles.idText}>{t.aadhaarCard}</Text>
             </TouchableOpacity>
@@ -79,7 +114,7 @@ export default function IdVerificationScreen({ navigation, route }) {
                 styles.idCard,
                 selectedId === "passport" && styles.selectedCard,
               ]}
-              onPress={() => setSelectedId("passport")}
+              onPress={() => setSelectedId("Passport")}
             >
               <Text style={styles.idText}>{t.passport}</Text>
             </TouchableOpacity>
@@ -89,7 +124,7 @@ export default function IdVerificationScreen({ navigation, route }) {
                 styles.idCard,
                 selectedId === "license" && styles.selectedCard,
               ]}
-              onPress={() => setSelectedId("license")}
+              onPress={() => setSelectedId("Driving License")}
             >
               <Text style={styles.idText}>{t.drivingLicense}</Text>
             </TouchableOpacity>
@@ -99,7 +134,7 @@ export default function IdVerificationScreen({ navigation, route }) {
                 styles.idCard,
                 selectedId === "other" && styles.selectedCard,
               ]}
-              onPress={() => setSelectedId("other")}
+              onPress={() => setSelectedId("Other")}
             >
               <Text style={styles.idText}>{t.otherId}</Text>
             </TouchableOpacity>
@@ -113,7 +148,7 @@ export default function IdVerificationScreen({ navigation, route }) {
             </Text>
 
             <Text style={styles.scanSubText}>
-              JPG, PNG, PDF or physical card
+              Place your selected identity document on the scanner below.
             </Text>
 
             {!verified && (
@@ -152,8 +187,8 @@ export default function IdVerificationScreen({ navigation, route }) {
                 style={styles.continueButton}
                 onPress={() => {
                   if (route.params?.from === "reservation") {
-                    if (route.params?.paymentStatus?.toLowerCase() === "paid") {
-                      navigation.navigate("Confirmation", {
+                    if (reservation.payment_status?.toLowerCase() === "paid") {
+                      navigation.navigate("KeyCard", {
                         ...route.params,
                         verifiedIdType: selectedId,
                       });
@@ -173,7 +208,9 @@ export default function IdVerificationScreen({ navigation, route }) {
               >
                 <Text style={styles.continueText}>
                   {route.params?.from === "reservation"
-                    ? "PROCEED TO PAYMENT →"
+                    ? reservation.payment_status?.toLowerCase() === "paid"
+                      ? "CONTINUE →"
+                      : "PROCEED TO PAYMENT →"
                     : "SELECT ROOM →"}
                 </Text>
               </TouchableOpacity>
@@ -264,6 +301,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     marginBottom: 30,
+  },
+
+  guestCard: {
+    backgroundColor: "#020817",
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 25,
+  },
+
+  infoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginVertical: 5,
+  },
+
+  infoLabel: {
+    color: "#94A3B8",
+    fontSize: 15,
+  },
+
+  infoValue: {
+    color: "#F8E7C8",
+    fontWeight: "bold",
+    fontSize: 16,
   },
 
   scannerArea: {

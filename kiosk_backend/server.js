@@ -12,6 +12,7 @@ import feedbackRoutes from "./src/routes/feedbackRoutes.js";
 import serviceRequestRoutes from "./src/routes/serviceRequestRoutes.js";
 import checkoutRoutes from "./src/routes/checkoutRoutes.js";
 import visitorRoutes from "./src/routes/visitorRoutes.js";
+import identityverificationRoutes from "./src/routes/identityverificationRoutes.js";
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ app.use("/api/feedback", feedbackRoutes);
 app.use("/api/service-requests", serviceRequestRoutes);
 app.use("/api/checkout", checkoutRoutes);
 app.use("/api/visitors", visitorRoutes);
+app.use("/api/identity", identityverificationRoutes);
 
 app.get("/", (req, res) => {
   res.json({
